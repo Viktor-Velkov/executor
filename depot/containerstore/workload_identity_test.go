@@ -78,7 +78,7 @@ var _ = Describe("injectWorkloadIdentity", func() {
 			result := injectWorkloadIdentity(baseConfig, container)
 			Expect(result).NotTo(HaveKey("_workload_guid"))
 			Expect(result).NotTo(HaveKey("_workload_type"))
-			Expect(result).To(BeIdenticalTo(baseConfig))
+			Expect(result).To(Equal(baseConfig))
 		})
 	})
 
