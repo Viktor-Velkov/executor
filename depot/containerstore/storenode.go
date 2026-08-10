@@ -309,7 +309,8 @@ func (n *storeNode) Create(logger lager.Logger, traceID string) error {
 func (n *storeNode) mountVolumes(logger lager.Logger, info executor.Container) ([]garden.BindMount, error) {
 	gardenMounts := []garden.BindMount{}
 	for _, volume := range info.VolumeMounts {
-		hostMount, err := n.volumeManager.Mount(logger, volume.Driver, volume.VolumeId, info.Guid, volume.Config)
+		config := injectWorkloadIdentity(volume.Config, info)
+		hostMount, err := n.volumeManager.Mount(logger, volume.Driver, volume.VolumeId, info.Guid, config)
 		if err != nil {
 			return nil, err
 		}
@@ -322,6 +323,29 @@ func (n *storeNode) mountVolumes(logger lager.Logger, info executor.Container) (
 			})
 	}
 	return gardenMounts, nil
+}
+
+func injectWorkloadIdentity(config map[string]interface{}, info executor.Container) map[string]interface{} {
+	lifecycle, ok := info.Tags["lifecycle"]
+	if !ok {
+		return config
+	}
+
+	enriched := make(map[string]interface{}, len(config)+2)
+	for k, v := range config {
+		enriched[k] = v
+	}
+
+	switch lifecycle {
+	case "lrp":
+		enriched["_workload_guid"] = info.Tags["process-guid"]
+		enriched["_workload_type"] = "lrp"
+	case "task":
+		enriched["_workload_guid"] = info.Guid
+		enriched["_workload_type"] = "task"
+	}
+
+	return enriched
 }
 
 func (n *storeNode) gardenProperties(container *executor.Container) (garden.Properties, error) {
